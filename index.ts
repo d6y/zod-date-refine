@@ -9,29 +9,29 @@ const treatmentOptions = z.union( [
 
 type TreatmentOption = z.infer<typeof treatmentOptions>
 
-const limitedTreatment = (treatment: TreatmentOption, now: Date) => {
-
-  const minus18Years = subYears(now, 18);
-  const minus21Years = subYears(now, 21);
-
+const maxDob = (treatment: TreatmentOption, now: Date) => {
   switch (treatment) {
     case "A":
     case "B":
+      const minus18Years = subYears(now, 18);
       return z.coerce.date().max(minus18Years, "Not old enough for treatment A or B");
     case "Z":
+      const minus21Years = subYears(now, 21);
       return z.coerce.date().max(minus21Years, "Not old enough for treatment Z");
   }
 };
   
-export const parser = (now: Date) => {
-
-  return z.object({
+export const parser = (now: Date) =>
+  z.object({
     treatment: treatmentOptions,
     birth_year: z.coerce.date()
-  }).refine(data =>
-    limitedTreatment(data.treatment, now).safeParse(data.birth_year).success
-  );
-  
-};
+  }).superRefine( (form, ctx) => {
+     let result = maxDob(form.treatment, now).safeParse(form.birth_year);
+     if (!result.success) {
+       result.error.issues.forEach( (issue) => ctx.addIssue(issue) );
+     } 
+   })
+      
+;
 
 
